@@ -35,10 +35,11 @@ preferences {
 }
 
 metadata {
-	definition (name: "Raspberry Pi", namespace: "nicholaswilde", author: "Nicholas Wilde") {
-		capability "Polling"
-		capability "Refresh"
-		capability "Temperature Measurement"
+  definition (name: "Raspberry Pi", namespace: "nicholaswilde", author: "Nicholas Wilde") {
+      capability "Indicator"
+    capability "Polling"
+    capability "Refresh"
+    capability "Temperature Measurement"
         capability "Switch"
         capability "Sensor"
         capability "Actuator"
@@ -47,16 +48,19 @@ metadata {
         attribute "cpuPercentage", "string"
         attribute "memory", "string"
         attribute "diskUsage", "string"
+        attribute "portswitch", "string"
+        command "porton"
+        command "portoff"
         
         command "restart"
-	}
+  }
 
-	simulator {
-		// TODO: define status and reply messages here
-	}
+  simulator {
+    // TODO: define status and reply messages here
+  }
 
-	tiles {
-		valueTile("temperature", "device.temperature", width: 1, height: 1) {
+  tiles {
+    valueTile("temperature", "device.temperature", width: 1, height: 1) {
             state "temperature", label:'${currentValue}° CPU', unit: "F",
             backgroundColors:[
                 [value: 25, color: "#153591"],
@@ -68,12 +72,13 @@ metadata {
                 [value: 77, color: "#bc2323"]
             ]
         }
+     
         standardTile("button", "device.switch", width: 1, height: 1, canChangeIcon: true) {
 			state "off", label: 'Off', icon: "st.Electronics.electronics18", backgroundColor: "#ffffff", nextState: "on"
 			state "on", label: 'On', icon: "st.Electronics.electronics18", backgroundColor: "#79b821", nextState: "off"
 		}
         valueTile("cpuPercentage", "device.cpuPercentage", inactiveLabel: false) {
-        	state "default", label:'${currentValue}% CPU', unit:"Percentage",
+          state "default", label:'${currentValue}% CPU', unit:"Percentage",
             backgroundColors:[
                 [value: 31, color: "#153591"],
                 [value: 44, color: "#1e9cbb"],
@@ -85,7 +90,7 @@ metadata {
             ]
         }
         valueTile("memory", "device.memory", width: 1, height: 1) {
-        	state "default", label:'${currentValue} MB', unit:"MB",
+          state "default", label:'${currentValue} MB', unit:"MB",
             backgroundColors:[
                 [value: 353, color: "#153591"],
                 [value: 287, color: "#1e9cbb"],
@@ -97,7 +102,7 @@ metadata {
             ]
         }
         valueTile("diskUsage", "device.diskUsage", width: 1, height: 1) {
-        	state "default", label:'${currentValue}% Disk', unit:"Percent",
+          state "default", label:'${currentValue}% Disk', unit:"Percent",
             backgroundColors:[
                 [value: 31, color: "#153591"],
                 [value: 44, color: "#1e9cbb"],
@@ -109,17 +114,27 @@ metadata {
             ]
         }
         standardTile("contact", "device.contact", width: 1, height: 1) {
-			state("closed", label:'${name}', icon:"st.contact.contact.closed", backgroundColor:"#79b821", action: "open")
-			state("open", label:'${name}', icon:"st.contact.contact.open", backgroundColor:"#ffa81e", action: "close")
-		}
+      state("closed", label:'${name}', icon:"st.contact.contact.closed", backgroundColor:"#79b821", action: "open")
+      state("open", label:'${name}', icon:"st.contact.contact.open", backgroundColor:"#ffa81e", action: "close")
+    }
         standardTile("restart", "device.restart", inactiveLabel: false, decoration: "flat") {
-        	state "default", action:"restart", label: "Restart", displayName: "Restart"
+          state "default", action:"restart", label: "Restart", displayName: "Restart"
         }
         standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat") {
-        	state "default", action:"refresh.refresh", icon: "st.secondary.refresh"
+          state "default", action:"refresh.refresh", icon: "st.secondary.refresh"
+        }
+
+        standardTile("portswitch", "device.switch", width: 1, height: 1, canChangeIcon: true) {
+          state "off", label: 'activate', action:"porton", icon: "st.Electronics.electronics18", backgroundColor: "#ffffff", nextState: "on"
+          state "on", label: 'deactivate', action:"portoff", icon: "st.Electronics.electronics18", backgroundColor: "#79b821", nextState: "off"
+        }
+       
+        standardTile("switch", "device.switch", width:1, height:1, canChangeIcon:true) {
+          state "off", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor:"#ffffff"
+            state "on", label: '${name}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor:"#79b821"
         }
         main "button"
-        details(["button", "temperature", "cpuPercentage", "memory" , "diskUsage", "contact", "restart", "refresh"])
+        details(["button", "temperature", "cpuPercentage", "memory" , "diskUsage", "contact", "restart", "refresh", "portswitch","switch"])
     }
 }
 
@@ -139,71 +154,147 @@ def parse(String description) {
     
     log.debug "result: ${result}"
 
-	if (result){
-    	log.debug "Computer is up"
-   		sendEvent(name: "switch", value: "on")
+  if (result){
+      log.debug "Computer is up"
+      sendEvent(name: "button", value: "on")
     }
     
     log.debug "check temp..."
     if (result.containsKey("cpu_temp")) {
-    	log.debug "temp: ${result.cpu_temp.toDouble().round()}"
+      log.debug "temp: ${result.cpu_temp.toDouble().round()}"
         log.debug "temp: ${celsiusToFahrenheit(result.cpu_temp.toDouble().round())} F"
-    	sendEvent(name: "temperature", value: celsiusToFahrenheit(result.cpu_temp.toDouble().round()))
+      sendEvent(name: "temperature", value: celsiusToFahrenheit(result.cpu_temp.toDouble().round()))
     }
     
     if (result.containsKey("cpu_perc")) {
-    	log.debug "cpu_perc: ${result.cpu_perc}"
+      log.debug "cpu_perc: ${result.cpu_perc}"
         sendEvent(name: "cpuPercentage", value: result.cpu_perc)
     }
     
     if (result.containsKey("mem_avail")) {
-    	log.debug "mem_avail: ${result.mem_avail.toDouble().round()}"
+      log.debug "mem_avail: ${result.mem_avail.toDouble().round()}"
         sendEvent(name: "memory", value: result.mem_avail.toDouble().round())
     }
     if (result.containsKey("disk_usage")) {
-    	log.debug "disk_usage: ${result.disk_usage.toDouble().round()}"
+      log.debug "disk_usage: ${result.disk_usage.toDouble().round()}"
         sendEvent(name: "diskUsage", value: result.disk_usage.toDouble().round())
     }
-  	if (result.containsKey("gpio_value_17")) {
-    	log.debug "gpio_value_17: ${result.gpio_value_17.toDouble().round()}"
+    if (result.containsKey("gpio_value_17")) {
+      log.debug "gpio_value_17: ${result.gpio_value_17.toDouble().round()}"
         if (result.gpio_value_17.contains("0")){
-        	log.debug "gpio_value_17: open"
+          log.debug "gpio_value_17: open"
             sendEvent(name: "contact", value: "open")
         } else {
-        	log.debug "gpio_value_17: closed"
+          log.debug "gpio_value_17: closed"
             sendEvent(name: "contact", value: "closed")
         }
     }
-  	
+    
 }
 
 // handle commands
 def poll() {
-	log.debug "Executing 'poll'"
-    sendEvent(name: "switch", value: "off")
+  log.debug "Executing 'poll'"
+    sendEvent(name: "button", value: "off")
     getRPiData()
 }
 
 def refresh() {
-	sendEvent(name: "switch", value: "off")
-	log.debug "Executing 'refresh'"
+  sendEvent(name: "button", value: "off")
+  log.debug "Executing 'refresh'"
     getRPiData()
 }
 
 def restart(){
-	log.debug "Restart was pressed"
-    sendEvent(name: "switch", value: "off")
+  log.debug "Restart was pressed"
+    sendEvent(name: "button", value: "off")
     def uri = "/api_command/reboot"
+    postAction(uri)
+}
+
+/*
+def on2() {
+  def userpass = encodeCredentials(username, password)
+  //log.debug("userpass: " + userpass) 
+  def headers = getHeader(userpass)
+  //log.debug("headders: " + headers) 
+  def params1 = [
+        uri:  'http://'+getHostAddress(),
+        path: "/gpio_set_mode/17/out",
+    headers: headers
+    ]
+    log.debug params1
+    def params2 = [
+        uri:  'http://'+getHostAddress(),
+        path: "/gpio_set_value/17/1",
+    headers: headers
+    ]
+  makeRequest(params1, params2)
+}
+*/
+
+def porton() {
+  log.debug "gpio17 port on"
+    def uri1 = "/gpio_set_mode/17/out"
+    postAction(uri1)
+}
+
+def portoff() {
+  log.debug "gpio17 port off"
+    def uri2 = "/gpio_set_mode/17/not_exported"
+    postAction(uri2)
+}
+
+def on() {
+  log.debug "gpio17 switch on"
+    def uri2 = "/gpio_set_value/17/1"
+    postAction(uri2)
+}
+
+def off() {
+  log.debug "gpio17 switch off"
+    def uri = "/gpio_set_value/17/0"
     postAction(uri)
 }
 
 // Get CPU percentage reading
 private getRPiData() {
-	def uri = "/api_command/smartthings"
+  def uri = "/api_command/smartthings"
     postAction(uri)
 }
 
+private postActionWrap(data) {
+  log.debug "postAction with ${data.uri}"
+  postAction(data.uri)
+}
+
 // ------------------------------------------------------------------
+
+/*
+private makeRequest(params, params2) {
+  // setDeviceNetworkId(ip,port)  
+  try{
+    httpPost(params) { resp ->
+        resp.headers.each { 
+            log.debug "${it.name} : ${it.value}"
+          }
+          // get an array of all headers with the specified key
+          def theHeaders = resp.getHeaders("Content-Length")
+          // get the contentType of the response
+          log.debug "response contentType: ${resp.contentType}"
+          // get the status code of the response
+          log.debug "response status code: ${resp.status}"
+          // get the data from the response body
+          log.debug "response data: ${resp.data}"
+          if(params2) {
+            gpioAction(params2, null)
+          }
+    }
+    } catch(e) {
+      log.error "something went wrong: $e"
+    }
+}
+*/
 
 private postAction(uri){
   setDeviceNetworkId(ip,port)  
@@ -214,12 +305,13 @@ private postAction(uri){
   def headers = getHeader(userpass)
   //log.debug("headders: " + headers) 
   
+  delayAction(1000)
   def hubAction = new physicalgraph.device.HubAction(
-    method: "POST",
-    path: uri,
+    method: "GET",
+    path: uri, // URLEncoder.encode(uri),
     headers: headers
   )//,delayAction(1000), refresh()]
-  log.debug("Executing hubAction on " + getHostAddress())
+  log.debug("Executing hubAction on " + getHostAddress() + " with: ${uri}")
   //log.debug hubAction
   hubAction    
 }
@@ -229,10 +321,10 @@ private postAction(uri){
 // ------------------------------------------------------------------
 
 def parseDescriptionAsMap(description) {
-	description.split(",").inject([:]) { map, param ->
-		def nameAndValue = param.split(":")
-		map += [(nameAndValue[0].trim()):nameAndValue[1].trim()]
-	}
+  description.split(",").inject([:]) { map, param ->
+    def nameAndValue = param.split(":")
+    map += [(nameAndValue[0].trim()):nameAndValue[1].trim()]
+  }
 }
 
 
@@ -251,8 +343,8 @@ def toAscii(s){
     }
 
 private encodeCredentials(username, password){
-	log.debug "Encoding credentials"
-	def userpassascii = "${username}:${password}"
+  //log.debug "Encoding credentials"
+  def userpassascii = "${username}:${password}"
     def userpass = "Basic " + userpassascii.encodeAsBase64().toString()
     //log.debug "ASCII credentials are ${userpassascii}"
     //log.debug "Credentials are ${userpass}"
@@ -260,7 +352,7 @@ private encodeCredentials(username, password){
 }
 
 private getHeader(userpass){
-	log.debug "Getting headers"
+  //log.debug "Getting headers"
     def headers = [:]
     headers.put("HOST", getHostAddress())
     headers.put("Authorization", userpass)
@@ -269,18 +361,18 @@ private getHeader(userpass){
 }
 
 private delayAction(long time) {
-	new physicalgraph.device.HubAction("delay $time")
+  new physicalgraph.device.HubAction("delay $time")
 }
 
 private setDeviceNetworkId(ip,port){
-  	def iphex = convertIPtoHex(ip)
-  	def porthex = convertPortToHex(port)
-  	device.deviceNetworkId = "$iphex:$porthex"
-  	log.debug "Device Network Id set to ${iphex}:${porthex}"
+    def iphex = convertIPtoHex(ip)
+    def porthex = convertPortToHex(port)
+    device.deviceNetworkId = "$iphex:$porthex"
+    log.debug "Device Network Id set to ${iphex}:${porthex}"
 }
 
 private getHostAddress() {
-	return "${ip}:${port}"
+  return "${ip}:${port}"
 }
 
 private String convertIPtoHex(ipAddress) { 
@@ -290,6 +382,6 @@ private String convertIPtoHex(ipAddress) {
 }
 
 private String convertPortToHex(port) {
-	String hexport = port.toString().format( '%04x', port.toInteger() )
+  String hexport = port.toString().format( '%04x', port.toInteger() )
     return hexport
 }
